@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ai-docstudy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: ai_docstudy
+      MYSQL_USER: docstudy
+      MYSQL_PASSWORD: docstudy123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - ai-docstudy-network
+
+  redis:
+    image: redis:7.0
+    container_name: ai-docstudy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai-docstudy-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  ai-docstudy-network:
+    driver: bridge
+
