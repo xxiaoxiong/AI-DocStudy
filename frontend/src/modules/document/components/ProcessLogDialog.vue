@@ -136,7 +136,7 @@ import { ref, watch, computed } from 'vue'
 import {
   Tickets, CopyDocument, Refresh, InfoFilled
 } from '@element-plus/icons-vue'
-import { progressApi, type ProcessLog } from '../api/progress'
+import { progressApi, type ProcessProgress } from '../api/progress'
 import { ElMessage } from 'element-plus'
 
 interface Props {
@@ -149,7 +149,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const visible = ref(false)
 const loading = ref(false)
-const log = ref<ProcessLog | null>(null)
+const log = ref<ProcessProgress | null>(null)
 const logLevelFilter = ref('')
 const showErrorDetail = ref(false)
 const expandedLogs = ref(new Set<number>())
@@ -283,8 +283,7 @@ const handleClose = () => {
 .process-log-dialog {
   :deep(.el-dialog__body) {
     padding: 20px;
-    max-height: 70vh;
-    overflow-y: auto;
+    overflow: hidden;
   }
 }
 
@@ -346,7 +345,8 @@ const handleClose = () => {
         border-radius: 4px;
         font-size: 12px;
         line-height: 1.6;
-        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
       }
     }
   }
@@ -364,7 +364,7 @@ const handleClose = () => {
     }
 
     .logs-list {
-      max-height: 500px;
+      max-height: 380px;
       overflow-y: auto;
 
       .log-item {
@@ -427,7 +427,8 @@ const handleClose = () => {
             border-radius: 4px;
             font-size: 12px;
             line-height: 1.6;
-            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
           }
         }
       }

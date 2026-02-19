@@ -6,7 +6,7 @@ export function useQA() {
   const store = useQAStore()
   const asking = ref(false)
 
-  const handleAsk = async (documentId: number, question: string) => {
+  const handleAsk = async (documentId: number | null, question: string) => {
     if (!question.trim()) {
       ElMessage.warning('请输入问题')
       return null

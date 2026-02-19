@@ -68,6 +68,6 @@ class Request {
 
 export const request = new Request({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
-  timeout: 30000
+  timeout: 60000  // 增加到60秒，因为AI问答需要更长时间
 })
 

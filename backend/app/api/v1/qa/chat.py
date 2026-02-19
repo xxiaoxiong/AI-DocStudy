@@ -11,6 +11,7 @@ from app.schemas.qa import (
     QAFeedback,
     RelatedQuestionsResponse
 )
+from typing import Optional
 from app.repositories.qa import QARepository
 from app.repositories.document import DocumentRepository
 from app.services.rag.generator import rag_generator
@@ -28,52 +29,73 @@ async def ask_question(
     """
     智能问答
     
-    基于文档内容回答用户问题
+    基于文档内容回答用户问题。document_id可选，不传则跨所有文档检索。
     """
-    # 1. 验证文档是否存在
-    doc_repo = DocumentRepository(db)
-    document = doc_repo.get(qa_create.document_id)
+    import traceback
     
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
-    
-    # 2. 检查文档是否处理完成
-    if document.status != 'completed':
-        raise HTTPException(status_code=400, detail="文档还在处理中，请稍后再试")
-    
-    # 3. 调用RAG服务生成答案
     try:
-        result = await rag_generator.answer_question(
-            document_id=qa_create.document_id,
-            question=qa_create.question,
-            top_k=3
+        from app.services.rag.retriever import vector_retriever
+        
+        if qa_create.document_id:
+            # 单文档模式
+            doc_repo = DocumentRepository(db)
+            document = doc_repo.get(qa_create.document_id)
+            if not document:
+                raise HTTPException(status_code=404, detail="文档不存在")
+            if document.status != 'completed':
+                raise HTTPException(status_code=400, detail="文档还在处理中，请稍后再试")
+            try:
+                vector_count = vector_retriever.get_collection_count(qa_create.document_id)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"向量数据库访问失败: {str(e)}")
+            if vector_count == 0:
+                raise HTTPException(status_code=400, detail="文档向量数据为空，请重新上传文档触发处理")
+            print(f"[QA] 用户 {current_user.id} 对文档 {qa_create.document_id} 提问: {qa_create.question}")
+            result = await rag_generator.answer_question(
+                document_id=qa_create.document_id,
+                question=qa_create.question,
+                top_k=3
+            )
+        else:
+            # 跨文档模式
+            print(f"[QA] 用户 {current_user.id} 跨文档提问: {qa_create.question}")
+            result = await rag_generator.answer_question_all(
+                question=qa_create.question,
+                top_k=5
+            )
+        
+        print(f"[QA] 答案生成成功，来源数量: {len(result['sources'])}")
+        
+        # 保存问答记录
+        qa_repo = QARepository(db)
+        qa_record = qa_repo.create({
+            "user_id": current_user.id,
+            "document_id": qa_create.document_id,
+            "question": qa_create.question,
+            "answer": result["answer"],
+            "sources": json.dumps(result["sources"], ensure_ascii=False),
+            "helpful": None
+        })
+        
+        return QAResponse(
+            id=qa_record.id,
+            document_id=qa_record.document_id,
+            question=qa_record.question,
+            answer=qa_record.answer,
+            sources=result["sources"],
+            has_answer=result["has_answer"],
+            helpful=qa_record.helpful,
+            user_id=qa_record.user_id,
+            created_at=qa_record.created_at
         )
+    
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成答案失败: {str(e)}")
-    
-    # 4. 保存问答记录
-    qa_repo = QARepository(db)
-    qa_record = qa_repo.create({
-        "user_id": current_user.id,
-        "document_id": qa_create.document_id,
-        "question": qa_create.question,
-        "answer": result["answer"],
-        "sources": json.dumps(result["sources"], ensure_ascii=False),
-        "helpful": None
-    })
-    
-    # 5. 构建响应
-    return QAResponse(
-        id=qa_record.id,
-        document_id=qa_record.document_id,
-        question=qa_record.question,
-        answer=qa_record.answer,
-        sources=result["sources"],
-        has_answer=result["has_answer"],
-        helpful=qa_record.helpful,
-        user_id=qa_record.user_id,
-        created_at=qa_record.created_at
-    )
+        error_msg = f"问答处理失败: {str(e)}"
+        print(f"[QA] 错误: {error_msg}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/history", response_model=QAListResponse)

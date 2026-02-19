@@ -87,8 +87,12 @@ class DeepSeekClient(BaseLLMClient):
         """清理资源"""
         try:
             import asyncio
-            asyncio.create_task(self.client.aclose())
-        except:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self.client.aclose())
+            else:
+                loop.run_until_complete(self.client.aclose())
+        except Exception:
             pass
 
 

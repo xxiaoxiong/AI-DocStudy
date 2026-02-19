@@ -40,3 +40,5 @@ CREATE TABLE IF NOT EXISTS document_process_logs (
     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文档处理日志表';
 
+
+

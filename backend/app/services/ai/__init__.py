@@ -19,8 +19,4 @@ def get_llm_client() -> BaseLLMClient:
         raise ValueError(f"不支持的LLM提供商: {settings.LLM_PROVIDER}")
 
 
-# 全局LLM客户端实例
-llm_client = get_llm_client()
-
-
 

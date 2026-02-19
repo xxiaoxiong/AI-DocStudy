@@ -7,8 +7,13 @@ from app.schemas.document import UploadResponse
 from app.repositories.document import DocumentRepository
 from app.services.document.processor import DocumentProcessor
 from app.utils.file_handler import FileHandler
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 router = APIRouter()
+
+# 创建线程池执行器（用于真正的后台任务）
+executor = ThreadPoolExecutor(max_workers=3)
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -40,9 +45,9 @@ async def upload_document(
             "status": "processing"
         })
         
-        # 4. 后台处理文档
-        background_tasks.add_task(
-            process_document_task,
+        # 4. 在独立线程中处理文档（真正的异步，不阻塞主进程）
+        executor.submit(
+            process_document_task_sync,
             document.id,
             file_path
         )
@@ -59,19 +64,31 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=f"文档上传失败: {str(e)}")
 
 
-def process_document_task(document_id: int, file_path: str):
-    """后台任务：处理文档（异步调用AI分析）"""
+def process_document_task_sync(document_id: int, file_path: str):
+    """同步包装器：在独立线程中处理文档"""
     from app.core.database import SessionLocal
-    import asyncio
     
     # 创建新的数据库会话
     db = SessionLocal()
     try:
+        # 重新加载配置，确保在后台任务中也能获取正确的配置
+        from app.core.config import settings
+        print(f"[后台任务] 文档 {document_id} 开始处理")
+        print(f"[后台任务] 使用 API Key: {settings.DEEPSEEK_API_KEY[:10]}...{settings.DEEPSEEK_API_KEY[-10:]}")
+        
         processor = DocumentProcessor(db)
-        # 使用asyncio运行异步处理
-        asyncio.run(processor.process(document_id, file_path))
+        
+        # 在新的事件循环中运行异步任务
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(processor.process(document_id, file_path))
+            print(f"[后台任务] 文档 {document_id} 处理完成")
+        finally:
+            loop.close()
+            
     except Exception as e:
-        print(f"文档处理任务失败: {str(e)}")
+        print(f"[后台任务] 文档 {document_id} 处理失败: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:

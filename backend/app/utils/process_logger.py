@@ -133,3 +133,5 @@ class ProcessLogger:
             'logs': json.loads(self.log_record.logs) if self.log_record.logs else []
         }
 
+
+

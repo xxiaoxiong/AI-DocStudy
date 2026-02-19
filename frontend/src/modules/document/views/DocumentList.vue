@@ -86,7 +86,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="240" fixed="right" align="center">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button
@@ -98,23 +98,22 @@
                 <el-icon><View /></el-icon>
                 查看进度
               </el-button>
-              <template v-else>
-                <el-button 
-                  size="small" 
-                  type="primary"
-                  @click.stop="viewDetail(row.id)"
-                  :disabled="row.status !== 'completed'"
-                >
-                  <el-icon><View /></el-icon>
-                  查看详情
-                </el-button>
-                <el-button 
-                  size="small" 
-                  type="danger" 
-                  @click.stop="handleDeleteClick(row)"
-                  :icon="Delete"
-                />
-              </template>
+              <el-button
+                v-else
+                size="small"
+                type="primary"
+                @click.stop="viewDetail(row.id)"
+                :disabled="row.status !== 'completed'"
+              >
+                <el-icon><View /></el-icon>
+                查看详情
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click.stop="handleDeleteClick(row)"
+                :icon="Delete"
+              />
             </div>
           </template>
         </el-table-column>
@@ -149,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { 
@@ -171,6 +170,37 @@ const showProgressDialog = ref(false)
 const selectedDocumentId = ref<number>(0)
 const statusFilter = ref('')
 const searchKeyword = ref('')
+const listPollTimer = ref<number | null>(null)
+
+const hasProcessingDocs = computed(() =>
+  store.documents.some(d => d.status === 'processing')
+)
+
+const startListPolling = () => {
+  if (listPollTimer.value) return
+  listPollTimer.value = window.setInterval(() => {
+    if (hasProcessingDocs.value) {
+      loadDocuments()
+    } else {
+      stopListPolling()
+    }
+  }, 3000)
+}
+
+const stopListPolling = () => {
+  if (listPollTimer.value) {
+    clearInterval(listPollTimer.value)
+    listPollTimer.value = null
+  }
+}
+
+watch(hasProcessingDocs, (val) => {
+  if (val) {
+    startListPolling()
+  } else {
+    stopListPolling()
+  }
+})
 
 const getStatusType = (status: string) => {
   const map: Record<string, any> = {
@@ -313,6 +343,10 @@ const loadDocuments = () => {
 
 onMounted(() => {
   loadDocuments()
+})
+
+onUnmounted(() => {
+  stopListPolling()
 })
 </script>
 

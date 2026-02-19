@@ -54,6 +54,60 @@ class DocumentProcessDetailResponse(BaseModel):
     vector_count: int
 
 
+@router.post("/{document_id}/re-vectorize")
+async def re_vectorize_document(
+    document_id: int = Path(..., description="文档ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """对已处理文档重新执行向量化（用于修复向量数据为空的文档）"""
+    from app.repositories.document import DocumentRepository, DocumentChunkRepository
+    from app.services.ai.embedding import embedding_service
+    from app.services.rag.retriever import vector_retriever
+
+    doc_repo = DocumentRepository(db)
+    document = doc_repo.get(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    if document.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="无权操作此文档")
+
+    chunk_repo = DocumentChunkRepository(db)
+    chunks = chunk_repo.get_by_document(document_id)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="文档没有分块数据，请重新上传文档")
+
+    try:
+        texts = [chunk.content if chunk.content else "" for chunk in chunks]
+        embeddings = embedding_service.embed_batch(texts)
+
+        # 清理旧向量
+        try:
+            vector_retriever.delete_collection(document_id)
+        except Exception:
+            pass
+
+        chunks_data = [
+            {
+                "id": chunk.id,
+                "content": chunk.content if chunk.content else "",
+                "metadata": {"chunk_index": chunk.chunk_index, "document_id": document_id}
+            }
+            for chunk in chunks
+        ]
+        vector_retriever.add_documents(
+            document_id=document_id,
+            chunks=chunks_data,
+            embeddings=embeddings
+        )
+        stored = vector_retriever.get_collection_count(document_id)
+        return {"success": True, "message": f"向量化完成，共存储 {stored} 个分块"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"向量化失败: {str(e)}")
+
+
 @router.get("/{document_id}/process-detail", response_model=DocumentProcessDetailResponse)
 async def get_document_process_detail(
     document_id: int = Path(..., description="文档ID"),
@@ -73,9 +127,14 @@ async def get_document_process_detail(
     # 计算总文本长度
     total_text_length = sum(len(chunk.content) for chunk in chunks)
     
-    # 检查向量化状态（简化版，实际需要查询Chroma）
-    has_vectors = len(chunks) > 0
-    vector_count = len(chunks) if has_vectors else 0
+    # 检查向量化状态（查询Chroma获取真实数量）
+    try:
+        from app.services.rag.retriever import vector_retriever
+        vector_count = vector_retriever.get_collection_count(document_id)
+        has_vectors = vector_count > 0
+    except Exception:
+        has_vectors = False
+        vector_count = 0
     
     return DocumentProcessDetailResponse(
         document_id=document_id,
@@ -106,4 +165,6 @@ async def get_document_process_detail(
         has_vectors=has_vectors,
         vector_count=vector_count
     )
+
+
 

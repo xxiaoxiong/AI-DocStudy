@@ -25,6 +25,7 @@ export interface ProcessProgress {
   
   // 错误信息
   error_message?: string
+  error_traceback?: string
   
   // 时间
   started_at: string
@@ -38,4 +39,6 @@ export const progressApi = {
     return request.get(`/api/v1/documents/${documentId}/progress`)
   }
 }
+
+
 

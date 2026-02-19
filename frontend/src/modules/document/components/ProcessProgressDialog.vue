@@ -5,6 +5,7 @@
     width="700px"
     :close-on-click-modal="false"
     @close="handleClose"
+    class="progress-dialog"
   >
     <div v-loading="loading" class="progress-container">
       <!-- 进度条 -->
@@ -82,7 +83,7 @@
           处理日志
         </el-divider>
         
-        <div class="logs-container">
+        <div class="logs-container" ref="logsContainerRef">
           <el-timeline>
             <el-timeline-item
               v-for="(log, index) in progress?.logs || []"
@@ -148,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Loading, Check, Close, Clock, DataAnalysis, Timer, Document,
@@ -170,6 +171,7 @@ const visible = ref(false)
 const loading = ref(false)
 const progress = ref<ProcessProgress | null>(null)
 const autoRefreshTimer = ref<number | null>(null)
+const logsContainerRef = ref<HTMLElement | null>(null)
 
 const dialogTitle = computed(() => {
   if (isCompleted.value) {
@@ -263,6 +265,11 @@ const fetchProgress = async () => {
         emit('completed')
       }
     }
+    // 日志有新内容时自动滚动到底部
+    await nextTick()
+    if (logsContainerRef.value) {
+      logsContainerRef.value.scrollTop = logsContainerRef.value.scrollHeight
+    }
   } catch (error: any) {
     console.error('获取进度失败:', error)
     // 如果是404，说明还没有日志记录，继续等待
@@ -279,12 +286,15 @@ const refreshProgress = () => {
 }
 
 const startMonitoring = () => {
+  stopMonitoring()
   fetchProgress()
   
-  // 每2秒自动刷新一次
+  // 每2秒自动刷新一次，完成或失败后停止
   autoRefreshTimer.value = window.setInterval(() => {
-    if (isProcessing.value) {
+    if (!isCompleted.value && !isFailed.value) {
       fetchProgress()
+    } else {
+      stopMonitoring()
     }
   }, 2000)
 }
@@ -312,7 +322,22 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
+.progress-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px;
+    max-height: 70vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .progress-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+
   .progress-section {
     margin-bottom: 24px;
 
@@ -376,12 +401,19 @@ defineExpose({
   }
 
   .logs-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+
     .logs-container {
-      max-height: 400px;
+      flex: 1;
       overflow-y: auto;
       padding: 12px;
       background: #fafafa;
       border-radius: 6px;
+      max-height: 260px;
 
       .log-content {
         .log-message {

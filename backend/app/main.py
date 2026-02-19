@@ -40,15 +40,11 @@ async def health_check():
 # 注册路由
 from app.api.v1 import auth
 from app.api.v1.documents import router as documents_router
-from app.api.v1.documents.progress import router as progress_router
-from app.api.v1.documents.detail import router as detail_router
-# from app.api.v1.qa import router as qa_router  # 暂时禁用，需要安装PyTorch等依赖
+from app.api.v1.qa import router as qa_router
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(documents_router, prefix="/api/v1", tags=["文档"])
-app.include_router(progress_router, prefix="/api/v1/documents", tags=["文档处理进度"])
-app.include_router(detail_router, prefix="/api/v1/documents", tags=["文档处理详情"])
-# app.include_router(qa_router, prefix="/api/v1/qa", tags=["问答"])  # 暂时禁用
+app.include_router(qa_router, prefix="/api/v1/qa", tags=["问答"])
 
 # TODO: 其他路由
 # from app.api.v1 import exam

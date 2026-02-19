@@ -9,33 +9,39 @@ export const useQAStore = defineStore('qa', () => {
   const messages = ref<QARecord[]>([])
   const loading = ref(false)
   const relatedQuestions = ref<string[]>([])
+  // 本地追踪待显示的用户问题（在AI回答前显示）
+  const pendingQuestion = ref<string>('')
 
   // 方法
-  async function askQuestion(documentId: number, question: string) {
+  async function askQuestion(documentId: number | null, question: string) {
     loading.value = true
+    pendingQuestion.value = question
     try {
       const response = await qaApi.ask({
-        document_id: documentId,
+        document_id: documentId || undefined,
         question
       })
       
-      // 添加到消息列表
       messages.value.push(response)
+      pendingQuestion.value = ''
       
-      // 获取相关问题
-      await fetchRelatedQuestions(documentId, question)
+      // 获取相关问题（仅单文档模式）
+      if (documentId) {
+        await fetchRelatedQuestions(documentId, question)
+      }
       
       return response
     } finally {
       loading.value = false
+      pendingQuestion.value = ''
     }
   }
 
-  async function fetchHistory(documentId: number) {
+  async function fetchHistory(documentId: number | null) {
     loading.value = true
     try {
       const response = await qaApi.getHistory({
-        document_id: documentId,
+        document_id: documentId || undefined,
         page: 1,
         page_size: 50
       })
@@ -82,6 +88,7 @@ export const useQAStore = defineStore('qa', () => {
     messages,
     loading,
     relatedQuestions,
+    pendingQuestion,
     askQuestion,
     fetchHistory,
     submitFeedback,

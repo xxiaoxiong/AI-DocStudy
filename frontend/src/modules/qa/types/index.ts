@@ -3,6 +3,8 @@ export interface QASource {
   content: string
   metadata: Record<string, any>
   relevance_score: number
+  document_id?: number
+  document_title?: string
 }
 
 export interface QARecord {
@@ -18,7 +20,7 @@ export interface QARecord {
 }
 
 export interface QACreate {
-  document_id: number
+  document_id?: number
   question: string
 }
 

@@ -208,9 +208,8 @@ async def delete_document(
         try:
             from app.services.rag.retriever import vector_retriever
             vector_retriever.delete_collection(document_id)
-            print(f"已删除文档 {document_id} 的向量数据")
         except Exception as e:
-            print(f"删除向量数据失败（可忽略）: {str(e)}")
+            print(f"[删除文档] 删除向量数据失败（可忽略，collection可能不存在）: {str(e)}")
         
         # 2. 删除物理文件
         try:

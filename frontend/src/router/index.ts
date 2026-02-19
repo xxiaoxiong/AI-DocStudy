@@ -32,14 +32,14 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/document/views/DocumentDetail.vue')
       },
       {
-        path: 'qa/:documentId',
+        path: 'qa',
         name: 'QAChat',
         component: () => import('@/modules/qa/views/QAChat.vue')
       },
       {
-        path: 'qa-history',
-        name: 'QAHistory',
-        component: () => import('@/modules/qa/views/QAHistory.vue')
+        path: 'qa/:documentId',
+        name: 'QAChatDoc',
+        component: () => import('@/modules/qa/views/QAChat.vue')
       },
       {
         path: 'exam',

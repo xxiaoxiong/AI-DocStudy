@@ -22,6 +22,13 @@ class DocumentProcessor:
         self.chunk_repo = DocumentChunkRepository(db)
         self.logger = None
     
+    def _log(self, level: str, message: str):
+        """安全的日志记录方法"""
+        if self.logger:
+            self.logger.add_log(level, message)
+        else:
+            print(f"[{level.upper()}] {message}")
+    
     async def process(self, document_id: int, file_path: str):
         """处理文档（增强版 - 使用AI进行智能分析，带进度跟踪）"""
         # 创建进度跟踪器
@@ -34,9 +41,10 @@ class DocumentProcessor:
             # 确保文件路径是绝对路径
             import os
             if not os.path.isabs(file_path):
-                # 如果是相对路径，转换为绝对路径
-                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-                file_path = os.path.join(base_dir, file_path)
+                # 获取backend目录的绝对路径
+                current_file = os.path.abspath(__file__)
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+                file_path = os.path.join(backend_dir, file_path)
             
             self.logger.add_log('info', f'文件路径: {file_path}')
             
@@ -115,20 +123,30 @@ class DocumentProcessor:
             # 步骤4: 文档分块 (65-80%)
             self.logger.update_step('chunking', '正在进行文档分块...', 70)
             chunks = self._chunk_document(document_id, text)
-            if chunks:
-                chunk_records = self.chunk_repo.create_batch(chunks)
-                self.logger.add_log('success', f'文档分块完成，共 {len(chunks)} 块')
-                self.logger.set_statistics(chunks_count=len(chunks))
-                
-                # 步骤5: 向量化存储 (80-95%)
-                self.logger.update_step('vectorizing', '正在进行向量化...', 85)
-                try:
-                    await self._vectorize_and_store(document_id, chunk_records)
-                    self.logger.add_log('success', '向量化完成')
-                except Exception as e:
-                    self.logger.add_log('warning', f'向量化跳过: {str(e)}')
+            if not chunks:
+                self.logger.add_log('error', '文档分块失败，无法生成分块')
+                self.doc_repo.update_status(document_id, 'failed')
+                self.logger.fail('文档分块失败')
+                return
             
-            self.logger.update_step('vectorizing', '向量化完成', 95)
+            chunk_records = self.chunk_repo.create_batch(chunks)
+            self.logger.add_log('success', f'文档分块完成，共 {len(chunks)} 块')
+            self.logger.set_statistics(chunks_count=len(chunks))
+            self.logger.update_step('chunking', '文档分块完成', 80)
+            
+            # 步骤5: 向量化存储 (80-95%) - 这是关键步骤，必须成功
+            self.logger.update_step('vectorizing', '正在进行向量化...', 85)
+            try:
+                self._vectorize_and_store(document_id, chunk_records)
+                self.logger.add_log('success', '向量化完成')
+                self.logger.update_step('vectorizing', '向量化完成', 95)
+            except Exception as e:
+                error_msg = f'向量化失败: {str(e)}'
+                self.logger.add_log('error', error_msg)
+                self.logger.add_log('error', f'错误堆栈: {traceback.format_exc()}')
+                self.doc_repo.update_status(document_id, 'failed')
+                self.logger.fail(error_msg)
+                return
             
             # 步骤6: 完成
             self.doc_repo.update_status(document_id, 'completed')
@@ -323,41 +341,98 @@ class DocumentProcessor:
     
     def _vectorize_and_store(self, document_id: int, chunk_records: List):
         """向量化文档分块并存储到Chroma"""
+        from app.services.ai.embedding import embedding_service
+        from app.services.rag.retriever import vector_retriever
+        
+        # 验证输入数据
+        if not chunk_records:
+            raise ValueError("没有文档分块需要向量化")
+        
+        self.logger.add_log('info', f"准备向量化 {len(chunk_records)} 个文档分块")
+        
+        # 准备数据并检查内容
+        texts = []
+        empty_chunks = []
+        for idx, chunk in enumerate(chunk_records):
+            if not chunk.content or not chunk.content.strip():
+                empty_chunks.append(idx)
+                self.logger.add_log('warning', f"分块 {idx} (ID={chunk.id}) 内容为空")
+            texts.append(chunk.content if chunk.content else "")
+        
+        if empty_chunks:
+            self.logger.add_log('warning', f"发现 {len(empty_chunks)} 个空分块，将使用零向量")
+        
+        # 批量向量化
+        self.logger.add_log('info', f"正在调用Embedding服务进行向量化...")
         try:
-            from app.services.ai.embedding import embedding_service
-            from app.services.rag.retriever import vector_retriever
-            
-            # 准备数据
-            texts = [chunk.content for chunk in chunk_records]
-            
-            # 批量向量化
-            print(f"正在向量化 {len(texts)} 个文档分块...")
             embeddings = embedding_service.embed_batch(texts)
-            
-            # 准备存储数据
-            chunks_data = []
-            for chunk in chunk_records:
-                chunks_data.append({
-                    'id': chunk.id,
-                    'content': chunk.content,
-                    'metadata': {
-                        'chunk_index': chunk.chunk_index,
-                        'document_id': document_id
-                    }
-                })
-            
-            # 存储到Chroma
+        except Exception as e:
+            error_msg = f"向量化失败: {str(e)}"
+            self.logger.add_log('error', error_msg)
+            raise ValueError(error_msg)
+        
+        # 验证向量化结果
+        if not embeddings:
+            raise ValueError("向量化返回空结果")
+        
+        if len(embeddings) != len(texts):
+            raise ValueError(f"向量化结果数量不匹配：期望 {len(texts)} 个向量，实际得到 {len(embeddings)} 个")
+        
+        self.logger.add_log('success', f"向量化成功，生成了 {len(embeddings)} 个向量")
+        
+        # 验证向量维度
+        vector_dims = [len(emb) for emb in embeddings]
+        if len(set(vector_dims)) > 1:
+            self.logger.add_log('error', f"向量维度不一致: {set(vector_dims)}")
+            raise ValueError("向量维度不一致")
+        
+        self.logger.add_log('info', f"向量维度: {vector_dims[0]}")
+        
+        # 获取文档标题用于metadata
+        doc = self.doc_repo.get(document_id)
+        document_title = doc.title if doc else ''
+        
+        # 准备存储数据
+        chunks_data = []
+        for idx, chunk in enumerate(chunk_records):
+            chunks_data.append({
+                'id': chunk.id,
+                'content': chunk.content if chunk.content else "",
+                'metadata': {
+                    'chunk_index': chunk.chunk_index,
+                    'document_id': document_id,
+                    'document_title': document_title,
+                    'is_empty': not bool(chunk.content and chunk.content.strip())
+                }
+            })
+        
+        # 存储到Chroma
+        self.logger.add_log('info', f"正在存储向量到Chroma数据库...")
+        try:
             vector_retriever.add_documents(
                 document_id=document_id,
                 chunks=chunks_data,
                 embeddings=embeddings
             )
-            
-            print(f"文档 {document_id} 向量化完成")
-            
         except Exception as e:
-            print(f"向量化失败: {str(e)}")
-            # 向量化失败不影响文档处理状态
+            error_msg = f"Chroma存储失败: {str(e)}"
+            self.logger.add_log('error', error_msg)
+            raise ValueError(error_msg)
+        
+        # 验证存储结果
+        try:
+            stored_count = vector_retriever.get_collection_count(document_id)
+            if stored_count == 0:
+                raise ValueError("向量存储失败：Chroma数据库中没有数据")
+            
+            if stored_count != len(chunk_records):
+                self.logger.add_log('warning', f"存储数量不匹配：期望 {len(chunk_records)}，实际 {stored_count}")
+            
+            self.logger.add_log('success', f"向量存储成功，Chroma中共有 {stored_count} 条记录")
+        except Exception as e:
+            error_msg = f"验证存储结果失败: {str(e)}"
+            self.logger.add_log('error', error_msg)
+            raise ValueError(error_msg)
     
     def _is_section_title(self, line: str) -> bool:
         """判断是否是章节标题"""
@@ -382,30 +457,52 @@ class DocumentProcessor:
     
     def _chunk_document(self, document_id: int, text: str) -> List[Dict]:
         """文档分块"""
+        if not text or not text.strip():
+            self._log('error', '文档内容为空，无法分块')
+            return []
+        
         chunks = []
         chunk_size = settings.CHUNK_SIZE
         overlap = settings.CHUNK_OVERLAP
         
+        self._log('info', f'分块参数: chunk_size={chunk_size}, overlap={overlap}')
+        
         # 按段落分割
         paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        
+        if not paragraphs:
+            # 如果没有段落分隔，按换行符分割
+            paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+        
+        if not paragraphs:
+            # 如果还是没有，直接使用整个文本
+            paragraphs = [text.strip()]
+        
+        self._log('info', f'文档分割为 {len(paragraphs)} 个段落')
         
         current_chunk = []
         current_length = 0
         chunk_index = 0
         
-        for paragraph in paragraphs:
+        for para_idx, paragraph in enumerate(paragraphs):
             para_length = len(paragraph)
             
             # 如果当前块加上新段落超过限制,保存当前块
             if current_length + para_length > chunk_size and current_chunk:
                 chunk_content = '\n\n'.join(current_chunk)
-                chunks.append({
-                    'document_id': document_id,
-                    'section_id': None,
-                    'chunk_index': chunk_index,
-                    'content': chunk_content,
-                    'chunk_hash': self._get_chunk_hash(chunk_content)
-                })
+                
+                # 确保分块内容不为空
+                if chunk_content.strip():
+                    chunks.append({
+                        'document_id': document_id,
+                        'section_id': None,
+                        'chunk_index': chunk_index,
+                        'content': chunk_content,
+                        'chunk_hash': self._get_chunk_hash(chunk_content)
+                    })
+                    chunk_index += 1
+                else:
+                    self._log('warning', f'跳过空分块 (段落索引: {para_idx})')
                 
                 # 保留overlap部分
                 if overlap > 0 and current_chunk:
@@ -415,8 +512,6 @@ class DocumentProcessor:
                 else:
                     current_chunk = []
                     current_length = 0
-                
-                chunk_index += 1
             
             current_chunk.append(paragraph)
             current_length += para_length
@@ -424,13 +519,18 @@ class DocumentProcessor:
         # 保存最后一个块
         if current_chunk:
             chunk_content = '\n\n'.join(current_chunk)
-            chunks.append({
-                'document_id': document_id,
-                'section_id': None,
-                'chunk_index': chunk_index,
-                'content': chunk_content,
-                'chunk_hash': self._get_chunk_hash(chunk_content)
-            })
+            if chunk_content.strip():
+                chunks.append({
+                    'document_id': document_id,
+                    'section_id': None,
+                    'chunk_index': chunk_index,
+                    'content': chunk_content,
+                    'chunk_hash': self._get_chunk_hash(chunk_content)
+                })
+            else:
+                self._log('warning', '最后一个分块为空，已跳过')
+        
+        self._log('info', f'文档分块完成，共生成 {len(chunks)} 个有效分块')
         
         return chunks
     

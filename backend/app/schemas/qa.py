@@ -5,7 +5,7 @@ from datetime import datetime
 
 class QABase(BaseModel):
     """问答基础Schema"""
-    document_id: int
+    document_id: Optional[int] = None
     question: str = Field(..., min_length=1, max_length=1000)
 
 
@@ -20,6 +20,8 @@ class QASource(BaseModel):
     content: str
     metadata: Dict = {}
     relevance_score: float
+    document_id: Optional[int] = None
+    document_title: Optional[str] = None
 
 
 class QAResponse(QABase):

@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     INTERNAL_LLM_URL: str = "http://internal-llm:8000"
     
     # Embedding配置
-    EMBEDDING_MODEL: str = "BAAI/bge-large-zh-v1.5"
-    CHROMA_PERSIST_DIR: str = "./data/chroma"
+    # 使用 bge-small 模型，更小更快（约200MB）
+    EMBEDDING_MODEL: str = "./models/AI-ModelScope/bge-small-zh-v1___5"
+    CHROMA_PERSIST_DIR: str = "./data/chroma_v2"
     
     # 文档配置
     UPLOAD_DIR: str = "./data/uploads"

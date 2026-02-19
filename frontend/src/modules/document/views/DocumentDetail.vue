@@ -10,11 +10,11 @@
         </el-tag>
       </div>
       <div class="actions">
-        <el-button type="primary" @click="goToQA" :disabled="store.currentDocument?.status !== 'completed'">
+        <el-button type="primary" @click="showQAModeDialog = true" :disabled="store.currentDocument?.status !== 'completed'">
           <el-icon><ChatDotRound /></el-icon>
           智能问答
         </el-button>
-        <el-button type="success" :disabled="store.currentDocument?.status !== 'completed'">
+        <el-button type="success" @click="showExamModeDialog = true" :disabled="store.currentDocument?.status !== 'completed'">
           <el-icon><Edit /></el-icon>
           生成考题
         </el-button>
@@ -70,36 +70,6 @@
             </template>
           </el-tree>
           <el-empty v-else description="暂无章节信息" :image-size="60" />
-        </div>
-
-        <!-- 快速导航 -->
-        <div class="quick-nav">
-          <div class="section-title">
-            <el-icon><Position /></el-icon>
-            <span>快速导航</span>
-          </div>
-          <div class="nav-items">
-            <div class="nav-item" @click="scrollToSection('summary')">
-              <el-icon><Reading /></el-icon>
-              <span>文档摘要</span>
-            </div>
-            <div class="nav-item" @click="scrollToSection('keypoints')">
-              <el-icon><Star /></el-icon>
-              <span>核心要点</span>
-            </div>
-            <div class="nav-item" @click="scrollToSection('concepts')">
-              <el-icon><Collection /></el-icon>
-              <span>关键概念</span>
-            </div>
-            <div class="nav-item" @click="scrollToSection('suggestions')">
-              <el-icon><Promotion /></el-icon>
-              <span>学习建议</span>
-            </div>
-            <div class="nav-item" @click="scrollToSection('questions')">
-              <el-icon><QuestionFilled /></el-icon>
-              <span>常见问题</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -321,16 +291,65 @@
       v-model="showLogDialog"
       :document-id="documentId"
     />
+
+    <!-- 智能问答模式选择 -->
+    <el-dialog
+      v-model="showQAModeDialog"
+      title="智能问答"
+      width="420px"
+      :close-on-click-modal="true"
+    >
+      <div class="mode-dialog-body">
+        <p class="mode-desc">请选择问答范围：</p>
+        <div class="mode-cards">
+          <div class="mode-card" @click="goToQA('doc')">
+            <el-icon :size="32" color="#667eea"><Document /></el-icon>
+            <div class="mode-title">当前文档</div>
+            <div class="mode-sub">仅基于《{{ store.currentDocument?.title }}》回答</div>
+          </div>
+          <div class="mode-card" @click="goToQA('all')">
+            <el-icon :size="32" color="#67c23a"><Collection /></el-icon>
+            <div class="mode-title">全库检索</div>
+            <div class="mode-sub">跨所有已导入文档检索回答</div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 生成考题模式选择 -->
+    <el-dialog
+      v-model="showExamModeDialog"
+      title="生成考题"
+      width="420px"
+      :close-on-click-modal="true"
+    >
+      <div class="mode-dialog-body">
+        <p class="mode-desc">请选择出题范围：</p>
+        <div class="mode-cards">
+          <div class="mode-card" @click="goToExam('doc')">
+            <el-icon :size="32" color="#667eea"><Document /></el-icon>
+            <div class="mode-title">当前文档</div>
+            <div class="mode-sub">仅基于《{{ store.currentDocument?.title }}》出题</div>
+          </div>
+          <div class="mode-card" @click="goToExam('all')">
+            <el-icon :size="32" color="#67c23a"><Collection /></el-icon>
+            <div class="mode-title">全库出题</div>
+            <div class="mode-sub">跨所有已导入文档综合出题</div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import {
   ChatDotRound, Document, TrendCharts, Clock, User,
   Reading, Star, Collection, Promotion, QuestionFilled, Edit, Loading,
-  List, Checked, Tickets, DataAnalysis, ArrowDown, Download, Position,
+  List, Checked, Tickets, DataAnalysis, ArrowDown, Download,
   Folder, Calendar
 } from '@element-plus/icons-vue'
 import { useDocumentStore } from '../stores/documentStore'
@@ -348,6 +367,8 @@ const showEditDialog = ref(false)
 const showProcessDialog = ref(false)
 const showDetailDialog = ref(false)
 const showLogDialog = ref(false)
+const showQAModeDialog = ref(false)
+const showExamModeDialog = ref(false)
 const activeTab = ref('summary')
 const mainContentRef = ref<HTMLElement>()
 const editForm = ref({
@@ -356,8 +377,19 @@ const editForm = ref({
 
 const documentId = computed(() => Number(route.params.id))
 
-const goToQA = () => {
-  router.push(`/qa/${documentId.value}`)
+const goToQA = (mode: 'doc' | 'all') => {
+  showQAModeDialog.value = false
+  if (mode === 'doc') {
+    router.push(`/qa/${documentId.value}`)
+  } else {
+    router.push('/qa')
+  }
+}
+
+const goToExam = (mode: 'doc' | 'all') => {
+  showExamModeDialog.value = false
+  // TODO: 实现考题生成功能
+  ElMessage.info(mode === 'doc' ? `将基于《${store.currentDocument?.title}》生成考题（功能开发中）` : '全库出题功能开发中')
 }
 
 const askQuestion = (question: string) => {
@@ -438,12 +470,18 @@ const scrollToSection = (section: string) => {
 }
 
 const handleOutlineClick = (data: any) => {
-  // 点击大纲节点的处理
-  console.log('Outline clicked:', data)
-}
-
-const viewProcessLog = () => {
-  showLogDialog.value = true
+  // 点击大纲节点，滚动到对应位置
+  if (mainContentRef.value) {
+    // 切换到摘要标签页（因为章节内容在摘要中）
+    activeTab.value = 'summary'
+    nextTick(() => {
+      // 平滑滚动到顶部，显示摘要内容
+      mainContentRef.value?.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    })
+  }
 }
 
 const getStatusType = (status: string) => {
@@ -488,14 +526,6 @@ const handleSave = async () => {
   await handleUpdate(documentId.value, editForm.value)
   showEditDialog.value = false
   await store.fetchDocumentDetail(documentId.value)
-}
-
-const viewProcessLog = () => {
-  showProcessDialog.value = true
-}
-
-const viewProcessDetail = () => {
-  showDetailDialog.value = true
 }
 
 onMounted(async () => {
@@ -561,12 +591,11 @@ onMounted(async () => {
 
   // 左侧导航
   .left-sidebar {
-    width: 260px;
+    width: 280px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    overflow-y: auto;
+    overflow: hidden;
 
     .section-title {
       display: flex;
@@ -585,16 +614,24 @@ onMounted(async () => {
       border-radius: 8px;
       padding: 12px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
 
       .outline-tree {
         margin-top: 8px;
         border: none;
         background: transparent;
+        overflow-y: auto;
+        flex: 1;
 
         :deep(.el-tree-node__content) {
-          padding: 6px 8px;
+          padding: 8px 10px;
           border-radius: 4px;
           margin: 2px 0;
+          cursor: pointer;
 
           &:hover {
             background: #f5f7fa;
@@ -608,43 +645,7 @@ onMounted(async () => {
 
         .tree-node-label {
           font-size: 13px;
-        }
-      }
-    }
-
-    .quick-nav {
-      background: #fff;
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-
-      .nav-items {
-        margin-top: 8px;
-
-        .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 12px;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: all 0.3s;
-          font-size: 14px;
-          color: #606266;
-
-          .el-icon {
-            font-size: 16px;
-            color: #909399;
-          }
-
-          &:hover {
-            background: #f5f7fa;
-            color: #409eff;
-
-            .el-icon {
-              color: #409eff;
-            }
-          }
+          line-height: 1.5;
         }
       }
     }
@@ -653,10 +654,10 @@ onMounted(async () => {
   // 右侧主内容
   .main-content {
     flex: 1;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: hidden;
   }
 
   // 状态卡片
@@ -669,12 +670,13 @@ onMounted(async () => {
   // 一句话总结横幅
   .summary-banner {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 24px;
+    padding: 20px;
     border-radius: 12px;
     display: flex;
     align-items: flex-start;
     gap: 16px;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    flex-shrink: 0;
 
     .quote-icon {
       font-size: 32px;
@@ -694,7 +696,7 @@ onMounted(async () => {
       }
 
       .summary-text {
-        font-size: 18px;
+        font-size: 16px;
         line-height: 1.6;
         color: #fff;
         font-weight: 500;
@@ -707,30 +709,34 @@ onMounted(async () => {
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
 
     .meta-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
 
       .meta-item {
         .meta-label {
           font-size: 12px;
           color: #909399;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .meta-value {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
           color: #303133;
+          line-height: 1.4;
+          word-break: break-word;
 
           .el-icon {
             font-size: 16px;
             color: #909399;
+            flex-shrink: 0;
           }
 
           &.difficulty-easy {
@@ -758,20 +764,30 @@ onMounted(async () => {
     border-radius: 8px;
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 
     :deep(.el-tabs__header) {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
     }
 
     :deep(.el-tabs__item) {
-      font-size: 15px;
-      padding: 0 24px;
-      height: 44px;
-      line-height: 44px;
+      font-size: 14px;
+      padding: 0 20px;
+      height: 40px;
+      line-height: 40px;
+    }
+
+    :deep(.el-tabs__content) {
+      flex: 1;
+      overflow-y: auto;
     }
 
     .tab-content {
-      min-height: 300px;
+      padding: 8px 0;
     }
 
     // 摘要
@@ -919,6 +935,55 @@ onMounted(async () => {
       .tip {
         font-size: 12px;
         color: #909399;
+      }
+    }
+  }
+}
+
+// 模式选择对话框
+.mode-dialog-body {
+  padding: 8px 0 16px;
+
+  .mode-desc {
+    font-size: 14px;
+    color: #606266;
+    margin: 0 0 16px;
+  }
+
+  .mode-cards {
+    display: flex;
+    gap: 16px;
+
+    .mode-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 24px 16px;
+      border: 2px solid #e4e7ed;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s;
+      text-align: center;
+
+      &:hover {
+        border-color: #667eea;
+        background: #f5f7ff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      }
+
+      .mode-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
+      }
+
+      .mode-sub {
+        font-size: 12px;
+        color: #909399;
+        line-height: 1.5;
       }
     }
   }

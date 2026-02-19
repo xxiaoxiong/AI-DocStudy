@@ -6,7 +6,7 @@
         "${workspaceFolder}/backend"
     ],
     "python.analysis.typeCheckingMode": "off",
-    "python.languageServer": "Pylance",
+    "python.languageServer": "None",
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": false,

@@ -15,3 +15,5 @@ ALTER TABLE documents MODIFY COLUMN summary TEXT COMMENT '详细摘要';
 -- 修改key_points字段类型为JSON（如果还不是的话）
 ALTER TABLE documents MODIFY COLUMN key_points JSON COMMENT '核心要点';
 
+
+

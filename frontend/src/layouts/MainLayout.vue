@@ -47,25 +47,9 @@
             <span>文档管理</span>
           </el-menu-item>
           
-          <el-sub-menu index="qa">
-            <template #title>
-              <el-icon><ChatDotRound /></el-icon>
-              <span>智能问答</span>
-            </template>
-            <el-menu-item index="/qa-history">
-              <el-icon><ChatLineRound /></el-icon>
-              <span>问答历史</span>
-            </el-menu-item>
-          </el-sub-menu>
-
-          <el-menu-item index="/exam">
-            <el-icon><Edit /></el-icon>
-            <span>考试练习</span>
-          </el-menu-item>
-
-          <el-menu-item index="/statistics">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>学习统计</span>
+          <el-menu-item index="/qa">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>智能问答</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -84,7 +68,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Reading, UserFilled, ArrowDown, User, Setting, SwitchButton,
-  Folder, ChatDotRound, ChatLineRound, Edit, DataAnalysis
+  Folder, ChatDotRound
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -98,9 +82,9 @@ const activeMenu = computed(() => {
   if (path.startsWith('/document')) {
     return '/documents'
   }
-  // 问答页面高亮问答历史
-  if (path.startsWith('/qa/')) {
-    return '/qa-history'
+  // 问答页面高亮智能问答
+  if (path.startsWith('/qa')) {
+    return '/qa'
   }
   return path
 })

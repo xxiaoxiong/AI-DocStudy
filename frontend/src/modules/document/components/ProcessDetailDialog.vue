@@ -183,7 +183,7 @@
                   Chroma
                 </el-descriptions-item>
                 <el-descriptions-item label="Embedding模型">
-                  BAAI/bge-large-zh-v1.5
+                  BAAI/bge-small-zh-v1.5
                 </el-descriptions-item>
               </el-descriptions>
               
@@ -322,8 +322,7 @@ const handleClose = () => {
 .process-detail-dialog {
   :deep(.el-dialog__body) {
     padding: 20px;
-    max-height: 70vh;
-    overflow-y: auto;
+    overflow: hidden;
   }
 }
 
@@ -349,6 +348,9 @@ const handleClose = () => {
 
   // 章节样式
   .sections-container {
+    max-height: 420px;
+    overflow-y: auto;
+
     .section-title {
       display: flex;
       align-items: center;
@@ -387,6 +389,9 @@ const handleClose = () => {
 
   // 分块样式
   .chunks-container {
+    max-height: 420px;
+    overflow-y: auto;
+
     .chunks-list {
       display: grid;
       gap: 16px;
@@ -420,8 +425,6 @@ const handleClose = () => {
             word-wrap: break-word;
             line-height: 1.6;
             color: #606266;
-            max-height: 300px;
-            overflow-y: auto;
           }
         }
 
@@ -439,6 +442,8 @@ const handleClose = () => {
 
   // 向量样式
   .vectors-container {
+    max-height: 420px;
+    overflow-y: auto;
     .vectors-info {
       .el-alert {
         margin-bottom: 20px;
@@ -468,6 +473,9 @@ const handleClose = () => {
 
   // 原始数据样式
   .raw-data-container {
+    max-height: 420px;
+    overflow-y: auto;
+
     .el-button {
       margin-bottom: 12px;
     }
@@ -476,8 +484,6 @@ const handleClose = () => {
       background: #f5f7fa;
       padding: 16px;
       border-radius: 4px;
-      max-height: 500px;
-      overflow: auto;
       font-size: 12px;
       line-height: 1.6;
       color: #606266;

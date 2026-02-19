@@ -89,3 +89,5 @@ async def get_document_progress(
         completed_at=log.completed_at.strftime('%Y-%m-%d %H:%M:%S') if log.completed_at else None
     )
 
+
+
