@@ -9,7 +9,7 @@ class Question(Base):
     __tablename__ = "questions"
     
     id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True, index=True)
     section_id = Column(Integer, ForeignKey('document_sections.id', ondelete='SET NULL'), nullable=True)
     type = Column(Enum('single', 'judge', 'essay'), nullable=False)
     difficulty = Column(Enum('easy', 'medium', 'hard'), default='medium')

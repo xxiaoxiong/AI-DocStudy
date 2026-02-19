@@ -51,6 +51,11 @@
             <el-icon><ChatDotRound /></el-icon>
             <span>智能问答</span>
           </el-menu-item>
+
+          <el-menu-item index="/exam">
+            <el-icon><EditPen /></el-icon>
+            <span>学习考试</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 
@@ -68,7 +73,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Reading, UserFilled, ArrowDown, User, Setting, SwitchButton,
-  Folder, ChatDotRound
+  Folder, ChatDotRound, EditPen
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -85,6 +90,10 @@ const activeMenu = computed(() => {
   // 问答页面高亮智能问答
   if (path.startsWith('/qa')) {
     return '/qa'
+  }
+  // 考试页面高亮学习考试
+  if (path.startsWith('/exam')) {
+    return '/exam'
   }
   return path
 })

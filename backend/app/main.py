@@ -41,14 +41,12 @@ async def health_check():
 from app.api.v1 import auth
 from app.api.v1.documents import router as documents_router
 from app.api.v1.qa import router as qa_router
+from app.api.v1.exam import router as exam_router
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(documents_router, prefix="/api/v1", tags=["文档"])
 app.include_router(qa_router, prefix="/api/v1/qa", tags=["问答"])
-
-# TODO: 其他路由
-# from app.api.v1 import exam
-# app.include_router(exam.router, prefix="/api/v1/exam", tags=["考试"])
+app.include_router(exam_router, prefix="/api/v1/exam", tags=["考试"])
 
 
 if __name__ == "__main__":

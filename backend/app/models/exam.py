@@ -9,7 +9,7 @@ class Exam(Base):
     __tablename__ = "exams"
     
     id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text)
     duration = Column(Integer, default=60)

@@ -43,13 +43,23 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'exam',
-        name: 'Exam',
-        component: () => import('@/modules/exam/views/ExamList.vue')
+        name: 'ExamConfig',
+        component: () => import('@/modules/exam/views/ExamConfig.vue')
       },
       {
-        path: 'statistics',
-        name: 'Statistics',
-        component: () => import('@/modules/document/views/Statistics.vue')
+        path: 'exam/doc/:documentId',
+        name: 'ExamConfigDoc',
+        component: () => import('@/modules/exam/views/ExamConfig.vue')
+      },
+      {
+        path: 'exam/session/:examId',
+        name: 'ExamSession',
+        component: () => import('@/modules/exam/views/ExamSession.vue')
+      },
+      {
+        path: 'exam/result/:examId',
+        name: 'ExamResult',
+        component: () => import('@/modules/exam/views/ExamResult.vue')
       }
     ]
   }

@@ -388,8 +388,14 @@ const goToQA = (mode: 'doc' | 'all') => {
 
 const goToExam = (mode: 'doc' | 'all') => {
   showExamModeDialog.value = false
-  // TODO: 实现考题生成功能
-  ElMessage.info(mode === 'doc' ? `将基于《${store.currentDocument?.title}》生成考题（功能开发中）` : '全库出题功能开发中')
+  if (mode === 'doc') {
+    router.push({
+      path: `/exam/doc/${documentId.value}`,
+      query: { title: store.currentDocument?.title }
+    })
+  } else {
+    router.push('/exam')
+  }
 }
 
 const askQuestion = (question: string) => {
